@@ -101,7 +101,7 @@ export default function Sidebar() {
       {/* Footer */}
       <div className="p-2 border-t border-white/10 space-y-0.5 flex-shrink-0">
         <button type="button"
-          onClick={() => window.open('http://localhost:5173', '_blank')}
+          onClick={() => window.open('https://giay-ecommerce.vercel.app', '_blank')}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-left"
           style={{ color: 'rgba(255,255,255,0.65)' }}
           onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
