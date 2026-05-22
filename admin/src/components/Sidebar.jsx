@@ -6,12 +6,12 @@ import { useEffect, useState } from 'react'
 import {
   LayoutDashboard, Package, ShoppingBag, Image,
   MapPin, Settings, LogOut, Home, Grid3x3,
-  BarChart3, Filter, ExternalLink, FileText, Users
+  BarChart3, Filter, ExternalLink, FileText, Users, X
 } from 'lucide-react'
 
-const BG        = '#330000'
+const BG        = '#5C0A0A'
 const HOVER_BG  = 'rgba(255,255,255,0.13)'
-const ACTIVE_BG = '#DD0000'
+const ACTIVE_BG = '#B71C1C'
 
 const NAV_ITEMS = [
   { to: '/',            icon: LayoutDashboard, label: 'Dashboard',   exact: true },
@@ -28,7 +28,7 @@ const NAV_ITEMS = [
   { to: '/settings',    icon: Settings,        label: 'Cài đặt' },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ onClose }) {
   const navigate = useNavigate()
   const [logoUrl, setLogoUrl] = useState('')
 
@@ -51,69 +51,88 @@ export default function Sidebar() {
   const hoverIn  = e => { e.currentTarget.style.backgroundColor = HOVER_BG; e.currentTarget.style.color = '#fff' }
   const hoverOut = e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.65)' }
 
-  return (
-    <aside className="w-60 text-white flex flex-col h-full flex-shrink-0 select-none"
-      style={{ backgroundColor: BG }}>
+  // Khi bấm vào menu item trên mobile → tự đóng sidebar
+  const handleNavClick = () => { if (onClose) onClose() }
 
-      {/* ✅ Logo — to hơn: h-12 thay vì h-9, padding p-5 */}
-      <div
-        className="p-5 border-b border-white/10 flex-shrink-0 cursor-pointer flex items-center"
-        style={{ minHeight: 72 }}
-        onClick={() => navigate('/')}
-      >
-        {logoUrl ? (
-          <img
-            src={logoUrl}
-            alt="Logo admin"
-            className="w-auto object-contain"
-            style={{ height: 48, maxWidth: 180 }}
-          />
-        ) : (
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center font-black"
-              style={{ backgroundColor: ACTIVE_BG, fontSize: 16 }}>G</div>
-            <div>
-              <div className="font-black" style={{ fontSize: 15 }}>
-                GIÀY<span style={{ color: '#f87171' }}>GIÁRẺ</span>
+  return (
+    <aside
+      className="w-64 text-white flex flex-col h-full flex-shrink-0 select-none"
+      style={{ backgroundColor: BG }}
+    >
+      {/* Logo + nút đóng (chỉ hiện trên mobile) */}
+      <div className="p-4 border-b border-white/10 flex-shrink-0 flex items-center justify-between"
+        style={{ minHeight: 68 }}>
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => { navigate('/'); handleNavClick() }}>
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="h-10 w-auto object-contain max-w-[140px]" />
+          ) : (
+            <>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black"
+                style={{ backgroundColor: ACTIVE_BG, fontSize: 15 }}>G</div>
+              <div>
+                <div className="font-black text-sm">
+                  GIÀY<span style={{ color: '#f87171' }}>GIÁRẺ</span>
+                </div>
+                <p className="text-[10px] text-white/40">Admin Panel</p>
               </div>
-              <p className="text-[10px] text-white/40">Admin Panel</p>
-            </div>
-          </div>
+            </>
+          )}
+        </div>
+
+        {/* ✅ Nút X đóng sidebar — chỉ hiện trên mobile */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 transition-colors flex-shrink-0"
+          >
+            <X size={18} />
+          </button>
         )}
       </div>
 
       {/* Nav */}
       <nav className="flex-1 p-2 overflow-y-auto space-y-0.5">
         {NAV_ITEMS.map(({ to, icon: Icon, label, exact }) => (
-          <NavLink key={to} to={to} end={exact}
+          <NavLink
+            key={to} to={to} end={exact}
+            onClick={handleNavClick}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors"
             style={({ isActive }) => ({
               backgroundColor: isActive ? ACTIVE_BG : 'transparent',
               color: isActive ? '#ffffff' : 'rgba(255,255,255,0.65)',
             })}
             onMouseEnter={e => { if (!e.currentTarget.getAttribute('aria-current')) e.currentTarget.style.backgroundColor = HOVER_BG }}
-            onMouseLeave={e => { if (!e.currentTarget.getAttribute('aria-current')) e.currentTarget.style.backgroundColor = 'transparent' }}>
-            <Icon size={17} />{label}
+            onMouseLeave={e => { if (!e.currentTarget.getAttribute('aria-current')) e.currentTarget.style.backgroundColor = 'transparent' }}
+          >
+            <Icon size={17} />
+            {label}
           </NavLink>
         ))}
       </nav>
 
       {/* Footer */}
       <div className="p-2 border-t border-white/10 space-y-0.5 flex-shrink-0">
-        <button type="button"
-          onClick={() => window.open('https://giay-ecommerce.vercel.app', '_blank')}
+        <button
+          type="button"
+          onClick={() => window.open('http://localhost:5176', '_blank')}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-left"
           style={{ color: 'rgba(255,255,255,0.65)' }}
-          onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+          onMouseEnter={hoverIn} onMouseLeave={hoverOut}
+        >
           <ExternalLink size={17} />
           Trang bán hàng ↗
         </button>
-        <button type="button" onClick={handleLogout}
+
+        <button
+          type="button"
+          onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm"
           style={{ color: 'rgba(255,255,255,0.65)' }}
           onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,100,100,0.2)'; e.currentTarget.style.color = '#fca5a5' }}
-          onMouseLeave={hoverOut}>
-          <LogOut size={17} />Đăng xuất
+          onMouseLeave={hoverOut}
+        >
+          <LogOut size={17} />
+          Đăng xuất
         </button>
       </div>
     </aside>

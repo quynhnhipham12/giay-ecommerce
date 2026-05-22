@@ -1,184 +1,156 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
+// Copy toàn bộ code dưới đây dán vào file: src/App.jsx (admin)
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
+import { useEffect, useState } from 'react'
+import { supabase } from './supabaseClient'
+import { Menu, X } from 'lucide-react'
 
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
+import LoginPage          from './pages/LoginPage'
+import Dashboard          from './pages/Dashboard'
+import ProductsPage       from './pages/ProductsPage'
+import OrdersPage         from './pages/OrdersPage'
+import BannersPage        from './pages/BannersPage'
+import StoresPage         from './pages/StoresPage'
+import SettingsPage       from './pages/SettingsPage'
+import HomepagePage       from './pages/HomepagePage'
+import CollectionsPage    from './pages/CollectionsPage'
+import FilterSettingsPage from './pages/FilterSettingsPage'
+import StatsPage          from './pages/StatsPage'
+import FooterSettingsPage from './pages/FooterSettingsPage'
+import MembersPage        from './pages/MembersPage'
+import Sidebar            from './components/Sidebar'
+
+// ── Layout admin có sidebar ẩn/hiện trên mobile ──
+function AdminLayout({ children }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  return (
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
+
+      {/* ── Overlay tối khi sidebar mở trên mobile ── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* ── Sidebar ──
+          Mobile: ẩn sang trái, bấm hamburger mới trượt ra
+          Desktop (lg+): luôn hiện cố định bên trái */}
+      <div className={`
+        fixed lg:static inset-y-0 left-0 z-50
+        transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:translate-x-0
+      `}>
+        <Sidebar onClose={() => setSidebarOpen(false)} />
+      </div>
+
+      {/* ── Nội dung chính ── */}
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+
+        {/* ── Thanh top mobile (chỉ hiện khi màn hình nhỏ) ── */}
+        <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 flex-shrink-0 shadow-sm">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-xl hover:bg-gray-100 transition-colors"
+            aria-label="Mở menu"
+          >
+            <Menu size={22} className="text-gray-700" />
+          </button>
+          <span className="font-black text-gray-800 text-base">
+            GIÀY<span style={{ color: '#B71C1C' }}>GIÁRẺ</span>
+            <span className="text-xs font-normal text-gray-400 ml-1">Admin</span>
+          </span>
+          {/* Nút đóng (dự phòng) */}
+          <div className="w-10" />
+        </div>
+
+        {/* ── Main content ── */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+          {children}
+        </main>
+      </div>
+    </div>
+  )
 }
 
-.hero {
-  position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
+// ── Protected route ──
+function ProtectedRoute({ user, isAdmin, checking, children }) {
+  if (checking) return (
+    <div className="flex items-center justify-center h-screen">
+      <div className="animate-spin w-10 h-10 border-4 border-t-transparent rounded-full"
+        style={{ borderColor: '#B71C1C', borderTopColor: 'transparent' }} />
+    </div>
+  )
+  if (!user) return <Navigate to="/login" replace />
+  if (!isAdmin) return (
+    <div className="flex items-center justify-center h-screen flex-col gap-4 p-4 text-center">
+      <div className="text-xl font-bold" style={{ color: '#B71C1C' }}>⛔ Không có quyền Admin</div>
+      <button onClick={() => supabase.auth.signOut()}
+        className="text-white px-6 py-2.5 rounded-xl font-medium"
+        style={{ backgroundColor: '#B71C1C' }}>
+        Đăng xuất
+      </button>
+    </div>
+  )
+  return <AdminLayout>{children}</AdminLayout>
 }
 
-#center {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
+export default function App() {
+  const [user, setUser]       = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [checking, setChecking] = useState(true)
 
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
-}
-
-#next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
+  const checkRole = async (u) => {
+    if (!u) { setUser(null); setIsAdmin(false); setChecking(false); return }
+    setUser(u)
+    try {
+      const { data, error } = await supabase.rpc('get_my_role')
+      if (error) {
+        const { data: ud } = await supabase.from('users').select('role').eq('id', u.id).maybeSingle()
+        setIsAdmin(ud?.role === 'admin')
+      } else {
+        setIsAdmin(data === 'admin')
+      }
+    } catch { setIsAdmin(false) }
+    setChecking(false)
   }
 
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => checkRole(session?.user || null))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') { setUser(null); setIsAdmin(false); setChecking(false) }
+      else if (['SIGNED_IN', 'TOKEN_REFRESHED'].includes(event)) checkRole(session?.user || null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
-}
+  const wrap = (C) => (
+    <ProtectedRoute user={user} isAdmin={isAdmin} checking={checking}>
+      <C />
+    </ProtectedRoute>
+  )
 
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
-}
-
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
-}
-
-.ticks {
-  position: relative;
-  width: 100%;
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
-
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
-  }
+  return (
+    <BrowserRouter>
+      <Toaster position="top-right" toastOptions={{ style: { fontSize: '14px' } }} />
+      <Routes>
+        <Route path="/login"       element={<LoginPage />} />
+        <Route path="/"            element={wrap(Dashboard)} />
+        <Route path="/products"    element={wrap(ProductsPage)} />
+        <Route path="/orders"      element={wrap(OrdersPage)} />
+        <Route path="/homepage"    element={wrap(HomepagePage)} />
+        <Route path="/collections" element={wrap(CollectionsPage)} />
+        <Route path="/banners"     element={wrap(BannersPage)} />
+        <Route path="/filters"     element={wrap(FilterSettingsPage)} />
+        <Route path="/stores"      element={wrap(StoresPage)} />
+        <Route path="/stats"       element={wrap(StatsPage)} />
+        <Route path="/members"     element={wrap(MembersPage)} />
+        <Route path="/footer"      element={wrap(FooterSettingsPage)} />
+        <Route path="/settings"    element={wrap(SettingsPage)} />
+      </Routes>
+    </BrowserRouter>
+  )
 }
