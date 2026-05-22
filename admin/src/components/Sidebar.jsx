@@ -9,7 +9,7 @@ import {
   BarChart3, Filter, ExternalLink, FileText, Users, X
 } from 'lucide-react'
 
-const BG        = '#5C0A0A'
+const BG        = '#440000'
 const HOVER_BG  = 'rgba(255,255,255,0.13)'
 const ACTIVE_BG = '#B71C1C'
 
