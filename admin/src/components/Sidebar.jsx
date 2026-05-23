@@ -51,39 +51,58 @@ export default function Sidebar({ onClose }) {
   const hoverIn  = e => { e.currentTarget.style.backgroundColor = HOVER_BG; e.currentTarget.style.color = '#fff' }
   const hoverOut = e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.65)' }
 
-  // Khi bấm vào menu item trên mobile → tự đóng sidebar
-  const handleNavClick = () => { if (onClose) onClose() }
+  // Khi bấm nav item → đóng sidebar trên mobile
+  const go = () => { if (onClose) onClose() }
 
   return (
     <aside
-      className="w-64 text-white flex flex-col h-full flex-shrink-0 select-none"
-      style={{ backgroundColor: BG }}
+      style={{ backgroundColor: BG, width: 240, height: '100%' }}
+      className="text-white flex flex-col flex-shrink-0 select-none"
     >
-      {/* Logo + nút đóng (chỉ hiện trên mobile) */}
-      <div className="p-4 border-b border-white/10 flex-shrink-0 flex items-center justify-between"
-        style={{ minHeight: 68 }}>
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => { navigate('/'); handleNavClick() }}>
+      {/* Logo + nút đóng */}
+      <div style={{
+        padding: '16px',
+        borderBottom: '1px solid rgba(255,255,255,0.1)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        minHeight: 68,
+        flexShrink: 0,
+      }}>
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+          onClick={() => { navigate('/'); go() }}
+        >
           {logoUrl ? (
-            <img src={logoUrl} alt="Logo" className="h-10 w-auto object-contain max-w-[140px]" />
+            <img src={logoUrl} alt="Logo" style={{ height: 40, width: 'auto', objectFit: 'contain', maxWidth: 140 }} />
           ) : (
             <>
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black"
-                style={{ backgroundColor: ACTIVE_BG, fontSize: 15 }}>G</div>
+              <div style={{
+                width: 32, height: 32, borderRadius: 8,
+                backgroundColor: ACTIVE_BG,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 900, fontSize: 15,
+              }}>G</div>
               <div>
-                <div className="font-black text-sm">
+                <div style={{ fontWeight: 900, fontSize: 14 }}>
                   GIÀY<span style={{ color: '#f87171' }}>GIÁRẺ</span>
                 </div>
-                <p className="text-[10px] text-white/40">Admin Panel</p>
+                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Admin Panel</p>
               </div>
             </>
           )}
         </div>
 
-        {/* ✅ Nút X đóng sidebar — chỉ hiện trên mobile */}
+        {/* Nút X chỉ hiện khi onClose được truyền vào (mobile) */}
         {onClose && (
           <button
             onClick={onClose}
-            className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 transition-colors flex-shrink-0"
+            style={{
+              padding: 6, borderRadius: 8, border: 'none',
+              background: 'rgba(255,255,255,0.1)',
+              cursor: 'pointer', color: 'white',
+              display: 'flex', alignItems: 'center',
+            }}
           >
             <X size={18} />
           </button>
@@ -91,48 +110,45 @@ export default function Sidebar({ onClose }) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-2 overflow-y-auto space-y-0.5">
+      <nav style={{ flex: 1, padding: 8, overflowY: 'auto' }}>
         {NAV_ITEMS.map(({ to, icon: Icon, label, exact }) => (
           <NavLink
             key={to} to={to} end={exact}
-            onClick={handleNavClick}
+            onClick={go}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors"
             style={({ isActive }) => ({
               backgroundColor: isActive ? ACTIVE_BG : 'transparent',
               color: isActive ? '#ffffff' : 'rgba(255,255,255,0.65)',
+              marginBottom: 2,
             })}
             onMouseEnter={e => { if (!e.currentTarget.getAttribute('aria-current')) e.currentTarget.style.backgroundColor = HOVER_BG }}
             onMouseLeave={e => { if (!e.currentTarget.getAttribute('aria-current')) e.currentTarget.style.backgroundColor = 'transparent' }}
           >
-            <Icon size={17} />
-            {label}
+            <Icon size={17} />{label}
           </NavLink>
         ))}
       </nav>
 
       {/* Footer */}
-      <div className="p-2 border-t border-white/10 space-y-0.5 flex-shrink-0">
+      <div style={{ padding: 8, borderTop: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
         <button
           type="button"
           onClick={() => window.open('http://localhost:5176', '_blank')}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-left"
-          style={{ color: 'rgba(255,255,255,0.65)' }}
+          style={{ color: 'rgba(255,255,255,0.65)', background: 'none', border: 'none', cursor: 'pointer' }}
           onMouseEnter={hoverIn} onMouseLeave={hoverOut}
         >
-          <ExternalLink size={17} />
-          Trang bán hàng ↗
+          <ExternalLink size={17} />Trang bán hàng ↗
         </button>
-
         <button
           type="button"
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm"
-          style={{ color: 'rgba(255,255,255,0.65)' }}
+          style={{ color: 'rgba(255,255,255,0.65)', background: 'none', border: 'none', cursor: 'pointer' }}
           onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,100,100,0.2)'; e.currentTarget.style.color = '#fca5a5' }}
           onMouseLeave={hoverOut}
         >
-          <LogOut size={17} />
-          Đăng xuất
+          <LogOut size={17} />Đăng xuất
         </button>
       </div>
     </aside>

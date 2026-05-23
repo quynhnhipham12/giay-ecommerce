@@ -26,10 +26,17 @@ export default function App() {
       <BrowserRouter>
         <Toaster position="top-right" />
         <ScrollToTop />
-        <div className="min-h-screen flex flex-col">
+        {/* ✅ Wrapper chặn tràn ngang trên mọi thiết bị */}
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflowX: 'hidden',
+          maxWidth: '100vw',
+        }}>
           <Navbar />
           <CartSidebar />
-          <main className="flex-1">
+          <main style={{ flex: 1, overflowX: 'hidden' }}>
             <Routes>
               <Route path="/"            element={<HomePage />} />
               <Route path="/products"    element={<ProductListingPage />} />
