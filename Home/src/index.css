@@ -1,8 +1,11 @@
+/* ✅ @import PHẢI đứng đầu tiên, trước tất cả */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ===== MOBILE OVERFLOW FIX — TRIỆT ĐỂ ===== */
+/* ===== MOBILE OVERFLOW FIX ===== */
 html {
   overflow-x: hidden !important;
 }
@@ -10,20 +13,18 @@ body {
   overflow-x: hidden !important;
   max-width: 100vw;
   -webkit-text-size-adjust: 100%;
+  font-family: 'Inter', sans-serif;
 }
 #root {
   overflow-x: hidden;
   max-width: 100vw;
 }
-/* Ảnh và media không bao giờ vượt container */
 img, video, iframe, svg {
   max-width: 100%;
 }
-/* Box sizing chuẩn */
 *, *::before, *::after {
   box-sizing: border-box;
 }
-/* Custom scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #f1f1f1; }
 ::-webkit-scrollbar-thumb { background: #B71C1C; border-radius: 4px; }
