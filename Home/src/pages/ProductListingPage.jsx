@@ -42,27 +42,20 @@ function Pagination({ current, total, onChange }) {
   }
   return (
     <div className="flex items-center justify-center gap-1 mt-10">
-      {current > 1 && (
-        <button onClick={() => onChange(current-1)}
-          className="w-10 h-10 flex items-center justify-center rounded-xl text-sm text-gray-500 hover:bg-gray-100">‹</button>
-      )}
+      {current > 1 && <button onClick={() => onChange(current-1)} className="w-10 h-10 flex items-center justify-center rounded-xl text-sm text-gray-500 hover:bg-gray-100">‹</button>}
       {getPages().map((page, i) =>
         page === '…'
           ? <span key={`d${i}`} className="w-10 text-center text-gray-400 text-sm">···</span>
           : <button key={page} onClick={() => onChange(page)}
-              className={`w-10 h-10 rounded-xl text-sm font-medium transition-all ${
-                page === current ? 'border-2 border-gray-300 font-bold text-gray-800 bg-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'
-              }`}>{page}</button>
+              className={`w-10 h-10 rounded-xl text-sm font-medium transition-all ${page === current ? 'border-2 border-gray-300 font-bold text-gray-800 bg-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'}`}>
+              {page}
+            </button>
       )}
-      {current < total && (
-        <button onClick={() => onChange(current+1)}
-          className="w-10 h-10 flex items-center justify-center rounded-xl text-sm text-gray-500 hover:bg-gray-100">›</button>
-      )}
+      {current < total && <button onClick={() => onChange(current+1)} className="w-10 h-10 flex items-center justify-center rounded-xl text-sm text-gray-500 hover:bg-gray-100">›</button>}
     </div>
   )
 }
 
-// ── Divider giữa các section bộ lọc ──
 const FilterDivider = () => <div className="border-t border-gray-100 my-1" />
 
 export default function ProductListingPage() {
@@ -72,20 +65,20 @@ export default function ProductListingPage() {
   const search   = searchParams.get('search') || ''
   const pageParam = parseInt(searchParams.get('page') || '1', 10)
 
-  const [products, setProducts] = useState([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [products, setProducts]           = useState([])
+  const [total, setTotal]                 = useState(0)
+  const [loading, setLoading]             = useState(true)
   const [filterSettings, setFilterSettings] = useState(null)
 
-  const [priceRange, setPriceRange] = useState([0, 10000000])
-  const [maxPrice, setMaxPrice] = useState(10000000)
+  const [priceRange, setPriceRange]       = useState([0, 10000000])
+  const [maxPrice, setMaxPrice]           = useState(10000000)
   const [selectedColors, setSelectedColors] = useState([])
-  const [selectedSizes, setSelectedSizes] = useState([])
+  const [selectedSizes, setSelectedSizes]   = useState([])
   const [selectedBrands, setSelectedBrands] = useState([])
-  const [sortBy, setSortBy] = useState('newest')
+  const [sortBy, setSortBy]               = useState('newest')
   const [showFilterMobile, setShowFilterMobile] = useState(false)
   const [availableColors, setAvailableColors] = useState([])
-  const [availableSizes, setAvailableSizes] = useState([])
+  const [availableSizes, setAvailableSizes]   = useState([])
   const [availableBrands, setAvailableBrands] = useState([])
 
   const currentPage = pageParam || 1
@@ -102,7 +95,7 @@ export default function ProductListingPage() {
           else setFilterSettings(data)
         })
     }
-    loadProducts(1)
+    loadProducts(1, 'newest')
   }, [category, sub, search])
 
   useEffect(() => { loadProducts(currentPage) }, [currentPage])
@@ -117,21 +110,31 @@ export default function ProductListingPage() {
     return count > 0 ? d7 : new Date(now - 30*24*3600*1000)
   }, [category])
 
-  const loadProducts = async (page = 1) => {
+  // ✅ sortOverride: nhận giá trị sort mới trực tiếp, không dùng state cũ
+  const loadProducts = async (page = 1, sortOverride = null) => {
+    const currentSort = sortOverride !== null ? sortOverride : sortBy
     setLoading(true)
     try {
       const offset = (page-1)*PER_PAGE
       let q = supabase.from('products').select('*', { count: 'exact' }).eq('is_active', true)
       if (search) q = q.ilike('name', `%${search}%`)
       else if (category) { q = q.eq('category', category); if (sub) q = q.eq('subcategory', sub) }
-      if (sortBy === 'newest') {
+
+      // ✅ Sắp xếp đúng chiều
+      if (currentSort === 'newest') {
         const nd = await getNewestDate()
         q = q.gte('created_at', nd.toISOString()).order('created_at', { ascending: false })
-      } else if (sortBy === 'price_asc') q = q.order('price', { ascending: true })
-      else if (sortBy === 'price_desc') q = q.order('price', { ascending: false })
-      else if (sortBy === 'bestseller') q = q.eq('is_best_seller', true).order('created_at', { ascending: false })
-      else q = q.order('created_at', { ascending: false })
-      q = q.range(offset, offset+PER_PAGE-1)
+      } else if (currentSort === 'price_asc') {
+        q = q.order('price', { ascending: true })   // Giá thấp → cao ✅
+      } else if (currentSort === 'price_desc') {
+        q = q.order('price', { ascending: false })  // Giá cao → thấp ✅
+      } else if (currentSort === 'bestseller') {
+        q = q.eq('is_best_seller', true).order('created_at', { ascending: false })
+      } else {
+        q = q.order('created_at', { ascending: false })
+      }
+
+      q = q.range(offset, offset + PER_PAGE - 1)
       const { data, count } = await q
       const items = data || []
       setProducts(items); setTotal(count || 0)
@@ -159,12 +162,13 @@ export default function ProductListingPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  // ✅ Fix: truyền val trực tiếp vào loadProducts, không dùng setTimeout
   const handleSortChange = (val) => {
     setSortBy(val)
     const next = new URLSearchParams(searchParams)
     next.set('page', '1')
     setSearchParams(next)
-    setTimeout(() => loadProducts(1), 0)
+    loadProducts(1, val) // ← KEY FIX: val được dùng ngay, không bị stale closure
   }
 
   const filteredProducts = products.filter(p => {
@@ -187,87 +191,66 @@ export default function ProductListingPage() {
     { value: 'price_desc', label: 'Giá cao → thấp' },
   ]
 
-  // ✅ Thứ tự mới: Màu sắc → Size → Giá → Thương hiệu
   const FilterPanel = () => (
     <div className="space-y-0">
-
-      {/* 1. Màu sắc */}
       {show.show_color && availableColors.length > 0 && (
         <div className="py-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-sm uppercase tracking-wider text-gray-800">Màu sắc</h3>
-            {selectedColors.length > 0 && (
-              <button onClick={() => setSelectedColors([])} className="text-xs" style={{ color: BRAND }}>Bỏ</button>
-            )}
+            {selectedColors.length > 0 && <button onClick={() => setSelectedColors([])} className="text-xs" style={{ color: BRAND }}>Bỏ</button>}
           </div>
           <div className="flex flex-wrap gap-2">
             {availableColors.map(c => (
               <button key={c} onClick={() => toggle(availableColors, setSelectedColors, c)}
                 className="px-3 py-1.5 text-xs border rounded-full transition-all"
-                style={selectedColors.includes(c)
-                  ? { backgroundColor: BRAND, borderColor: BRAND, color: '#fff' }
-                  : { borderColor: '#e5e7eb', color: '#374151' }}>
+                style={selectedColors.includes(c) ? { backgroundColor: BRAND, borderColor: BRAND, color: '#fff' } : { borderColor: '#e5e7eb', color: '#374151' }}>
                 {c}
               </button>
             ))}
           </div>
         </div>
       )}
-
       {show.show_color && availableColors.length > 0 && <FilterDivider />}
 
-      {/* 2. Size */}
       {show.show_size && availableSizes.length > 0 && (
         <div className="py-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-sm uppercase tracking-wider text-gray-800">Size</h3>
-            {selectedSizes.length > 0 && (
-              <button onClick={() => setSelectedSizes([])} className="text-xs" style={{ color: BRAND }}>Bỏ</button>
-            )}
+            {selectedSizes.length > 0 && <button onClick={() => setSelectedSizes([])} className="text-xs" style={{ color: BRAND }}>Bỏ</button>}
           </div>
           <div className="flex flex-wrap gap-2">
             {availableSizes.map(s => (
               <button key={s} onClick={() => toggle(availableSizes, setSelectedSizes, s)}
                 className="w-10 h-10 text-xs border-2 rounded-lg font-medium transition-all"
-                style={selectedSizes.includes(s)
-                  ? { backgroundColor: BRAND, borderColor: BRAND, color: '#fff' }
-                  : { borderColor: '#e5e7eb', color: '#374151' }}>
+                style={selectedSizes.includes(s) ? { backgroundColor: BRAND, borderColor: BRAND, color: '#fff' } : { borderColor: '#e5e7eb', color: '#374151' }}>
                 {s}
               </button>
             ))}
           </div>
         </div>
       )}
-
       {show.show_size && availableSizes.length > 0 && <FilterDivider />}
 
-      {/* 3. Giá */}
       {show.show_price && (
         <div className="py-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-sm uppercase tracking-wider text-gray-800">Giá</h3>
-            <span className="text-gray-200 text-sm">—</span>
           </div>
           <PriceInputFilter min={0} max={maxPrice} value={priceRange} onChange={setPriceRange} />
         </div>
       )}
-
       {show.show_price && <FilterDivider />}
 
-      {/* 4. Thương hiệu */}
       {show.show_brand && availableBrands.length > 0 && (
         <div className="py-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-sm uppercase tracking-wider text-gray-800">Thương hiệu</h3>
-            {selectedBrands.length > 0 && (
-              <button onClick={() => setSelectedBrands([])} className="text-xs" style={{ color: BRAND }}>Bỏ</button>
-            )}
+            {selectedBrands.length > 0 && <button onClick={() => setSelectedBrands([])} className="text-xs" style={{ color: BRAND }}>Bỏ</button>}
           </div>
           {availableBrands.map(b => (
             <label key={b} className="flex items-center gap-2 cursor-pointer mb-2">
               <input type="checkbox" checked={selectedBrands.includes(b)}
-                onChange={() => toggle(availableBrands, setSelectedBrands, b)}
-                className="w-4 h-4 accent-red-800" />
+                onChange={() => toggle(availableBrands, setSelectedBrands, b)} className="w-4 h-4 accent-red-800" />
               <span className="text-sm text-gray-700">{b}</span>
             </label>
           ))}
@@ -275,16 +258,14 @@ export default function ProductListingPage() {
       )}
 
       {(selectedColors.length > 0 || selectedSizes.length > 0 || selectedBrands.length > 0) && (
-        <>
-          <FilterDivider />
-          <div className="py-4">
-            <button onClick={() => { setSelectedColors([]); setSelectedSizes([]); setSelectedBrands([]); setPriceRange([0, maxPrice]) }}
-              className="w-full py-2.5 border-2 text-sm font-semibold rounded-xl"
-              style={{ borderColor: BRAND, color: BRAND }}>
-              Xoá tất cả bộ lọc
-            </button>
-          </div>
-        </>
+        <><FilterDivider />
+        <div className="py-4">
+          <button onClick={() => { setSelectedColors([]); setSelectedSizes([]); setSelectedBrands([]); setPriceRange([0, maxPrice]) }}
+            className="w-full py-2.5 border-2 text-sm font-semibold rounded-xl"
+            style={{ borderColor: BRAND, color: BRAND }}>
+            Xoá tất cả bộ lọc
+          </button>
+        </div></>
       )}
     </div>
   )
@@ -299,7 +280,6 @@ export default function ProductListingPage() {
           {search && <><span>/</span><span className="text-gray-700">"{search}"</span></>}
         </nav>
       </div>
-
       <div className="container mx-auto px-4 pb-16">
         <div className="flex items-start justify-between mb-6">
           <h1 className="text-2xl md:text-3xl font-black uppercase">
@@ -307,12 +287,8 @@ export default function ProductListingPage() {
           </h1>
           <span className="text-sm text-gray-400 mt-2">{total} sản phẩm</span>
         </div>
-
         <div className="flex gap-8">
-          <aside className="hidden md:block w-56 flex-shrink-0">
-            <FilterPanel />
-          </aside>
-
+          <aside className="hidden md:block w-56 flex-shrink-0"><FilterPanel /></aside>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-5 gap-3">
               <button onClick={() => setShowFilterMobile(true)}
@@ -327,7 +303,6 @@ export default function ProductListingPage() {
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
             </div>
-
             {loading ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {[...Array(8)].map((_, i) => <div key={i} className="bg-gray-100 animate-pulse rounded-xl aspect-square" />)}
@@ -353,7 +328,6 @@ export default function ProductListingPage() {
           </div>
         </div>
       </div>
-
       {showFilterMobile && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowFilterMobile(false)} />
