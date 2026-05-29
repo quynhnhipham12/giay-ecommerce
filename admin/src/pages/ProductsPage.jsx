@@ -1,946 +1,686 @@
 // Copy toàn bộ code dưới đây dán vào file: src/pages/ProductsPage.jsx (admin)
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
 import toast from 'react-hot-toast'
-import { Plus, Pencil, Trash2, X, Upload, Loader2, Search, Filter } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Upload, Search, Flame } from 'lucide-react'
 
-// ── Categories với subcategory ──
-const CATEGORY_MAP = {
-  'Giày Nữ': ['Sandal', 'Giày Thể Thao', 'Giày Cao Gót', 'Giày Búp Bê', 'Dép'],
-  'Giày Nam': ['Sandal', 'Giày Thể Thao', 'Giày Tây', 'Dép'],
-  'Bé Trai': ['Giày Thể Thao', 'Sandal', 'Dép'],
-  'Bé Gái': ['Giày Thể Thao', 'Sandal', 'Dép'],
-  'Phụ Kiện': ['Nón', 'Balo', 'Vớ'],
-}
-const CATEGORIES = Object.keys(CATEGORY_MAP)
-const ALL_SIZES = ['35','36','37','38','39','40','41','42','43','44','45','freesize']
-
-const FONT_SIZES = ['12px','14px','16px','18px','20px','24px','28px','32px']
-const FONT_FAMILIES = ['Inter, sans-serif','Georgia, serif','Courier New, monospace','Arial, sans-serif','Verdana, sans-serif']
-const COLORS = ['#000000','#e53e3e','#dd6b20','#d69e2e','#38a169','#3182ce','#805ad5','#ffffff','#718096']
-
-const emptyForm = {
-  name: '', brand: '', sku: '', price: '', original_price: '',
-  category: 'Giày Nam', subcategory: '',
-  sizes: [], colors: [],
-  description: '', warranty_info: '', return_info: '', delivery_info: '',
-  is_active: true, is_flash_sale: false, is_new: true,
-  stock: 100,
+// ─────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────
+const CATEGORIES = {
+  'Giày Nữ': ['Sandal','Giày Thể Thao','Giày Cao Gót','Giày Búp Bê','Dép'],
+  'Giày Nam': ['Sandal','Giày Thể Thao','Giày Tây','Dép'],
+  'Bé Trai':  ['Giày Thể Thao','Sandal','Dép'],
+  'Bé Gái':   ['Giày Thể Thao','Sandal','Dép'],
+  'Phụ Kiện': ['Nón','Balo','Vớ'],
 }
 
-// ── Rich Text Editor tự xây ──
-function RichEditor({ value, onChange, placeholder }) {
-  const editorRef = useRef(null)
+const ADULT_SIZES = ['35','36','37','38','39','40','41','42','43','44','45']
+const CHILD_SIZES = ['30','31','32','33','34','35']
 
-  useEffect(() => {
-    if (editorRef.current) editorRef.current.innerHTML = value || ''
-  }, [])
-
-  const exec = (cmd, val = null) => {
-    editorRef.current?.focus()
-    document.execCommand(cmd, false, val)
-    onChange(editorRef.current.innerHTML)
-  }
-
-  return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden">
-      {/* Toolbar */}
-      <div className="bg-gray-50 border-b border-gray-200 p-2 flex flex-wrap gap-1 items-center">
-        <button type="button" onClick={() => exec('bold')}
-          className="px-2 py-1 rounded hover:bg-gray-200 font-bold text-sm" title="In đậm">B</button>
-        <button type="button" onClick={() => exec('italic')}
-          className="px-2 py-1 rounded hover:bg-gray-200 italic text-sm" title="In nghiêng">I</button>
-        <button type="button" onClick={() => exec('underline')}
-          className="px-2 py-1 rounded hover:bg-gray-200 underline text-sm" title="Gạch chân">U</button>
-        <button type="button" onClick={() => exec('strikeThrough')}
-          className="px-2 py-1 rounded hover:bg-gray-200 line-through text-sm" title="Gạch ngang">S</button>
-
-        <div className="w-px h-5 bg-gray-300 mx-1" />
-
-        {/* Font size */}
-        <select onChange={e => exec('fontSize', e.target.value)} defaultValue=""
-          className="text-xs border border-gray-200 rounded px-1 py-1 bg-white outline-none h-7">
-          <option value="" disabled>Cỡ chữ</option>
-          {['1','2','3','4','5','6','7'].map((v,i) => (
-            <option key={v} value={v}>{FONT_SIZES[i] || v}</option>
-          ))}
-        </select>
-
-        {/* Font family */}
-        <select onChange={e => exec('fontName', e.target.value)} defaultValue=""
-          className="text-xs border border-gray-200 rounded px-1 py-1 bg-white outline-none h-7 max-w-[110px]">
-          <option value="" disabled>Font chữ</option>
-          {FONT_FAMILIES.map(f => (
-            <option key={f} value={f} style={{ fontFamily: f }}>{f.split(',')[0]}</option>
-          ))}
-        </select>
-
-        <div className="w-px h-5 bg-gray-300 mx-1" />
-
-        <button type="button" onClick={() => exec('formatBlock', 'h2')}
-          className="px-2 py-1 rounded hover:bg-gray-200 text-xs font-bold">H2</button>
-        <button type="button" onClick={() => exec('formatBlock', 'h3')}
-          className="px-2 py-1 rounded hover:bg-gray-200 text-xs font-semibold">H3</button>
-        <button type="button" onClick={() => exec('formatBlock', 'p')}
-          className="px-2 py-1 rounded hover:bg-gray-200 text-xs">P</button>
-
-        <div className="w-px h-5 bg-gray-300 mx-1" />
-
-        <button type="button" onClick={() => exec('insertUnorderedList')}
-          className="px-2 py-1 rounded hover:bg-gray-200 text-xs">• List</button>
-        <button type="button" onClick={() => exec('insertOrderedList')}
-          className="px-2 py-1 rounded hover:bg-gray-200 text-xs">1. List</button>
-
-        <div className="w-px h-5 bg-gray-300 mx-1" />
-
-        <button type="button" onClick={() => exec('justifyLeft')}
-          className="px-2 py-1 rounded hover:bg-gray-200 text-xs">⬛←</button>
-        <button type="button" onClick={() => exec('justifyCenter')}
-          className="px-2 py-1 rounded hover:bg-gray-200 text-xs">⬛↔</button>
-        <button type="button" onClick={() => exec('justifyRight')}
-          className="px-2 py-1 rounded hover:bg-gray-200 text-xs">⬛→</button>
-
-        <div className="w-px h-5 bg-gray-300 mx-1" />
-
-        {/* Màu chữ */}
-        <div className="flex items-center gap-0.5">
-          <span className="text-[10px] text-gray-400 mr-0.5">A</span>
-          {COLORS.map(c => (
-            <button key={c} type="button" onClick={() => exec('foreColor', c)}
-              className="w-4 h-4 rounded-full border border-gray-300 hover:scale-125 transition-transform"
-              style={{ backgroundColor: c }} title={c} />
-          ))}
-        </div>
-
-        <div className="w-px h-5 bg-gray-300 mx-1" />
-
-        {/* Màu nền */}
-        <div className="flex items-center gap-0.5">
-          <span className="text-[10px] text-gray-400 mr-0.5">BG</span>
-          {COLORS.map(c => (
-            <button key={c} type="button" onClick={() => exec('hiliteColor', c)}
-              className="w-4 h-4 rounded-full border border-gray-300 hover:scale-125 transition-transform"
-              style={{ backgroundColor: c }} title={c} />
-          ))}
-        </div>
-
-        <div className="w-px h-5 bg-gray-300 mx-1" />
-
-        <button type="button" onClick={() => exec('removeFormat')}
-          className="px-2 py-1 rounded hover:bg-red-100 text-red-500 text-xs">Xoá định dạng</button>
-      </div>
-
-      {/* Vùng nhập */}
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={() => onChange(editorRef.current.innerHTML)}
-        className="min-h-[150px] p-4 text-sm text-gray-700 outline-none focus:bg-blue-50/20"
-        style={{ lineHeight: '1.6' }}
-        data-placeholder={placeholder || 'Nhập nội dung...'}
-      />
-      <style>{`[contenteditable]:empty:before{content:attr(data-placeholder);color:#9ca3af;pointer-events:none}`}</style>
-    </div>
-  )
+// ✅ Size theo danh mục:
+//   Bé Trai/Bé Gái → 30-35
+//   Phụ Kiện       → không có size (trả về [])
+//   Còn lại        → 35-45
+const getSizes = (cat) => {
+  if (['Bé Trai','Bé Gái'].includes(cat)) return CHILD_SIZES
+  if (cat === 'Phụ Kiện') return []
+  return ADULT_SIZES
 }
 
-// ── Color Manager ──
-function ColorManager({ colors, onChange }) {
-  const [showAdd, setShowAdd] = useState(false)
-  const [newColor, setNewColor] = useState({ name: '', hex: '#000000', images: [] })
-  const [uploadingIdx, setUploadingIdx] = useState(null)
-  const fileRef = useRef()
-  const [uploadTarget, setUploadTarget] = useState(null)
+const fmt = n => new Intl.NumberFormat('vi-VN').format(Number(n) || 0)
 
-  const addColor = () => {
-    if (!newColor.name) return toast.error('Nhập tên màu!')
-    onChange([...colors, { ...newColor, images: [] }])
-    setNewColor({ name: '', hex: '#000000', images: [] })
-    setShowAdd(false)
-  }
+const EMPTY_FORM = {
+  name: '', brand: '', sku: '', price: '', compare_price: '',
+  category: 'Giày Nữ', subcategory: '', description: '',
+  material: '', warranty: '', delivery_info: '',
+  sizes: [], colors: [], is_active: true, is_flash_sale: false,
+  is_new: true, is_best_seller: false, stock_quantity: 0,
+  flash_sale_start: '', flash_sale_end: '',
+}
 
-  const removeColor = (idx) => {
-    onChange(colors.filter((_, i) => i !== idx))
-  }
+// ─────────────────────────────────────────────────────────────
+// FlashSaleModal — bật/tắt flash sale + chọn ngày giờ
+// ─────────────────────────────────────────────────────────────
+function FlashSaleModal({ product, onClose, onSaved }) {
+  const toLocal = ts => ts ? new Date(ts).toISOString().slice(0,16) : ''
+  const [form, setForm] = useState({
+    is_flash_sale:    product.is_flash_sale || false,
+    flash_sale_start: toLocal(product.flash_sale_start),
+    flash_sale_end:   toLocal(product.flash_sale_end),
+  })
+  const [saving, setSaving] = useState(false)
 
-  const handleImageUpload = async (file, colorIdx) => {
-    if (!file) return
-    if (file.size > 5 * 1024 * 1024) return toast.error('Ảnh phải nhỏ hơn 5MB')
-    setUploadingIdx(colorIdx)
-    try {
-      const ext = file.name.split('.').pop()
-      const path = `products/color_${Date.now()}.${ext}`
-      const { error } = await supabase.storage
-        .from('product-images').upload(path, file, { upsert: true })
-      if (error) throw error
-      const { data: { publicUrl } } = supabase.storage
-        .from('product-images').getPublicUrl(path)
-      const updated = colors.map((c, i) =>
-        i === colorIdx ? { ...c, images: [...(c.images || []), publicUrl] } : c
-      )
-      onChange(updated)
-      toast.success('Đã upload ảnh!')
-    } catch (err) {
-      toast.error('Lỗi upload: ' + err.message)
-    } finally {
-      setUploadingIdx(null)
+  const save = async () => {
+    setSaving(true)
+    const updates = {
+      is_flash_sale:    form.is_flash_sale,
+      flash_sale_start: form.flash_sale_start ? new Date(form.flash_sale_start).toISOString() : null,
+      flash_sale_end:   form.flash_sale_end   ? new Date(form.flash_sale_end).toISOString()   : null,
     }
-  }
-
-  const removeImage = (colorIdx, imgIdx) => {
-    const updated = colors.map((c, i) =>
-      i === colorIdx ? { ...c, images: c.images.filter((_, j) => j !== imgIdx) } : c
-    )
-    onChange(updated)
+    const { error } = await supabase.from('products').update(updates).eq('id', product.id)
+    setSaving(false)
+    if (error) { toast.error('Lỗi: ' + error.message); return }
+    onSaved({ ...product, ...updates })
+    toast.success(form.is_flash_sale ? '🔥 Flash Sale đã bật!' : '✅ Đã tắt Flash Sale')
+    onClose()
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <label className="text-sm font-semibold text-gray-700">
-          🎨 Màu sản phẩm & Hình ảnh
-        </label>
-        <button type="button" onClick={() => setShowAdd(!showAdd)}
-          className="text-xs text-red-600 hover:underline font-medium">
-          + Thêm màu
-        </button>
-      </div>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <h3 className="font-bold text-lg flex items-center gap-2">
+            <Flame size={20} className="text-orange-500" /> Flash Sale
+          </h3>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <p className="text-sm font-semibold text-gray-700 line-clamp-2">{product.name}</p>
 
-      {/* Form thêm màu */}
-      {showAdd && (
-        <div className="bg-gray-50 rounded-xl p-3 mb-3 flex items-end gap-3">
-          <div className="flex-1">
-            <label className="text-xs text-gray-500 mb-1 block">Tên màu</label>
-            <input value={newColor.name}
-              onChange={e => setNewColor(p => ({ ...p, name: e.target.value }))}
-              placeholder="Đen, Trắng, Đỏ..."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-red-500" />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Mã màu</label>
-            <input type="color" value={newColor.hex}
-              onChange={e => setNewColor(p => ({ ...p, hex: e.target.value }))}
-              className="w-10 h-9 rounded-lg border border-gray-200 cursor-pointer" />
-          </div>
-          <button type="button" onClick={addColor}
-            className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700">
-            Thêm
+          {/* Toggle */}
+          <label className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition-all select-none ${form.is_flash_sale ? 'border-orange-400 bg-orange-50' : 'border-gray-200 hover:border-orange-200'}`}>
+            <input type="checkbox" checked={form.is_flash_sale}
+              onChange={e => setForm(p => ({ ...p, is_flash_sale: e.target.checked }))}
+              className="w-5 h-5 accent-orange-500" />
+            <div>
+              <p className="font-bold text-sm">🔥 Kích hoạt Flash Sale</p>
+              <p className="text-xs text-gray-500">Hiện trong danh mục Flash Sale</p>
+            </div>
+          </label>
+
+          {/* DateTime pickers */}
+          {form.is_flash_sale && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">⏰ Bắt đầu</label>
+                <input type="datetime-local" value={form.flash_sale_start}
+                  onChange={e => setForm(p => ({ ...p, flash_sale_start: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-400" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">⏰ Kết thúc</label>
+                <input type="datetime-local" value={form.flash_sale_end}
+                  onChange={e => setForm(p => ({ ...p, flash_sale_end: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-400" />
+              </div>
+              <p className="text-xs text-gray-400">Để trống nếu không giới hạn thời gian</p>
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3 px-6 pb-6">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50">Huỷ</button>
+          <button onClick={save} disabled={saving}
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-colors"
+            style={{ backgroundColor: saving ? '#9ca3af' : '#f97316' }}>
+            {saving ? 'Đang lưu...' : '💾 Lưu'}
           </button>
         </div>
-      )}
-
-      {/* Danh sách màu */}
-      <div className="space-y-3">
-        {colors.map((color, colorIdx) => (
-          <div key={colorIdx} className="border border-gray-200 rounded-xl p-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full border-2 border-gray-200"
-                  style={{ backgroundColor: color.hex }} />
-                <span className="text-sm font-semibold text-gray-700">{color.name}</span>
-                <span className="text-xs text-gray-400">{color.hex}</span>
-              </div>
-              <button type="button" onClick={() => removeColor(colorIdx)}
-                className="text-red-400 hover:text-red-600 text-xs">Xoá màu</button>
-            </div>
-
-            {/* Ảnh của màu này */}
-            <div className="flex gap-2 flex-wrap">
-              {(color.images || []).map((img, imgIdx) => (
-                <div key={imgIdx} className="relative w-16 h-16">
-                  <img src={img} alt="" className="w-full h-full object-cover rounded-lg border" />
-                  <button type="button" onClick={() => removeImage(colorIdx, imgIdx)}
-                    className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600">
-                    ✕
-                  </button>
-                </div>
-              ))}
-
-              {/* Thêm ảnh */}
-              <button
-                type="button"
-                onClick={() => {
-                  setUploadTarget(colorIdx)
-                  fileRef.current?.click()
-                }}
-                disabled={uploadingIdx === colorIdx}
-                className="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-red-400 hover:bg-red-50 transition-all text-gray-400 flex-shrink-0"
-              >
-                {uploadingIdx === colorIdx
-                  ? <Loader2 size={16} className="animate-spin" />
-                  : <>
-                    <Upload size={14} />
-                    <span className="text-[10px] mt-0.5">+Ảnh</span>
-                  </>
-                }
-              </button>
-            </div>
-          </div>
-        ))}
       </div>
-
-      <input
-        ref={fileRef} type="file" accept="image/*" className="hidden"
-        onChange={e => {
-          if (uploadTarget !== null) handleImageUpload(e.target.files[0], uploadTarget)
-          e.target.value = ''
-        }}
-      />
-
-      {colors.length === 0 && (
-        <p className="text-xs text-gray-400 mt-2 italic">
-          Chưa có màu nào — thêm màu để upload ảnh theo từng màu
-        </p>
-      )}
     </div>
   )
 }
 
-async function writeLog(action, entityId, entityName, newData = null, oldData = null) {
-  const { data: { user } } = await supabase.auth.getUser()
-  await supabase.from('logs').insert({
-    action, entity_type: 'product', entity_id: entityId, entity_name: entityName,
-    admin_id: user?.id, admin_email: user?.email,
-    old_data: oldData, new_data: newData,
-  })
+// ─────────────────────────────────────────────────────────────
+// ColorManager — quản lý màu sắc + hình ảnh
+// ─────────────────────────────────────────────────────────────
+function ColorManager({ colors, onChange }) {
+  const fileRefs = useRef({})
+  const [uploading, setUploading] = useState({})
+
+  const addColor = () => onChange([...colors, { id: Date.now(), name: '', colorCode: '#000000', images: [] }])
+  const removeColor = (id) => onChange(colors.filter(c => c.id !== id))
+  const updateColor = (id, field, val) => onChange(colors.map(c => c.id === id ? { ...c, [field]: val } : c))
+
+  const uploadImages = async (colorId, files) => {
+    setUploading(p => ({ ...p, [colorId]: true }))
+    const urls = []
+    for (const file of Array.from(files)) {
+      const path = `products/${colorId}_${Date.now()}_${file.name.replace(/\s/g,'_')}`
+      const { error } = await supabase.storage.from('banners').upload(path, file, { upsert: true })
+      if (!error) {
+        const { data: { publicUrl } } = supabase.storage.from('banners').getPublicUrl(path)
+        urls.push(publicUrl)
+      }
+    }
+    const color = colors.find(c => c.id === colorId)
+    if (color) updateColor(colorId, 'images', [...(color.images || []), ...urls])
+    setUploading(p => ({ ...p, [colorId]: false }))
+  }
+
+  const removeImage = (colorId, imgIdx) => {
+    const color = colors.find(c => c.id === colorId)
+    if (color) updateColor(colorId, 'images', color.images.filter((_, i) => i !== imgIdx))
+  }
+
+  return (
+    <div className="space-y-4">
+      {colors.map(color => (
+        <div key={color.id} className="border border-gray-200 rounded-xl p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <input type="color" value={color.colorCode || '#000000'} onChange={e => updateColor(color.id, 'colorCode', e.target.value)}
+              className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5" />
+            <input value={color.name} onChange={e => updateColor(color.id, 'name', e.target.value)}
+              placeholder="Tên màu (VD: Trắng, Đen...)"
+              className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-red-800" />
+            <button onClick={() => removeColor(color.id)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg">
+              <Trash2 size={16} />
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {(color.images || []).map((img, idx) => (
+              <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200 group">
+                <img src={img} alt="" className="w-full h-full object-cover" />
+                <button onClick={() => removeImage(color.id, idx)}
+                  className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-white rounded-xl">
+                  <X size={16} />
+                </button>
+                {idx === 0 && <span className="absolute top-1 left-1 bg-red-700 text-white text-[9px] px-1 rounded">Chính</span>}
+              </div>
+            ))}
+            <button onClick={() => fileRefs.current[color.id]?.click()}
+              className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:border-red-400 hover:text-red-400 transition-all cursor-pointer text-xs gap-1">
+              {uploading[color.id] ? <div className="w-5 h-5 border-2 border-gray-300 border-t-red-700 rounded-full animate-spin" /> : <><Upload size={18} /><span>Ảnh</span></>}
+            </button>
+            <input ref={el => fileRefs.current[color.id] = el} type="file" accept="image/*" multiple className="hidden"
+              onChange={e => uploadImages(color.id, e.target.files)} />
+          </div>
+        </div>
+      ))}
+      <button onClick={addColor} className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-xl text-sm font-medium text-gray-500 hover:border-red-400 hover:text-red-700 transition-all flex items-center justify-center gap-2">
+        <Plus size={16} /> Thêm màu sắc
+      </button>
+    </div>
+  )
 }
 
-export default function ProductsPage() {
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [editProduct, setEditProduct] = useState(null)
-  const [form, setForm] = useState(emptyForm)
-  const [mainImageFile, setMainImageFile] = useState(null)
-  const [mainImagePreview, setMainImagePreview] = useState('')
+// ─────────────────────────────────────────────────────────────
+// ProductForm — Modal thêm/sửa sản phẩm
+// ─────────────────────────────────────────────────────────────
+function ProductForm({ product, onClose, onSaved }) {
+  const isEdit = !!product?.id
+  const [form, setForm] = useState(isEdit ? {
+    ...EMPTY_FORM, ...product,
+    flash_sale_start: product.flash_sale_start ? new Date(product.flash_sale_start).toISOString().slice(0,16) : '',
+    flash_sale_end:   product.flash_sale_end   ? new Date(product.flash_sale_end).toISOString().slice(0,16)   : '',
+  } : { ...EMPTY_FORM })
+  const [tab, setTab]       = useState(0)
   const [saving, setSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState('basic')
-  const [search, setSearch] = useState('')
-  const [stockFilter, setStockFilter] = useState({ min: '', max: '' })
-  const [statusFilter, setStatusFilter] = useState('all')
-  const mainFileRef = useRef()
 
-  useEffect(() => { fetchProducts() }, [])
+  const setF = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
-  const fetchProducts = async () => {
-    setLoading(true)
-    const { data } = await supabase.from('products')
-      .select('*').order('created_at', { ascending: false })
-    setProducts(data || [])
-    setLoading(false)
+  // ✅ Reset sizes khi đổi category
+  const handleCategoryChange = (cat) => {
+    setF('category', cat)
+    setF('subcategory', '')
+    setF('sizes', []) // reset sizes khi đổi danh mục
   }
 
-  const setF = (key, val) => setForm(prev => ({ ...prev, [key]: val }))
-
-  const openAdd = () => {
-    setEditProduct(null)
-    setForm(emptyForm)
-    setMainImageFile(null)
-    setMainImagePreview('')
-    setActiveTab('basic')
-    setShowModal(true)
+  const toggleSize = (s) => {
+    setF('sizes', form.sizes.includes(s) ? form.sizes.filter(x => x !== s) : [...form.sizes, s])
   }
 
-  const openEdit = (p) => {
-    setEditProduct(p)
-    setForm({
-      name: p.name || '', brand: p.brand || '', sku: p.sku || '',
-      price: p.price || '', original_price: p.original_price || '',
-      category: p.category || 'Giày Nam',
-      subcategory: p.subcategory || '',
-      sizes: p.sizes || [], colors: p.colors || [],
-      description: p.description || '',
-      warranty_info: p.warranty_info || '',
-      return_info: p.return_info || '',
-      delivery_info: p.delivery_info || '',
-      is_active: p.is_active ?? true,
-      is_flash_sale: p.is_flash_sale ?? false,
-      is_new: p.is_new ?? false,
-      stock: p.stock ?? 100,
-    })
-    setMainImagePreview(p.image_url || '')
-    setActiveTab('basic')
-    setShowModal(true)
-  }
-
-  const handleMainImageChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    if (file.size > 5 * 1024 * 1024) return toast.error('Ảnh phải nhỏ hơn 5MB')
-    setMainImageFile(file)
-    setMainImagePreview(URL.createObjectURL(file))
-  }
-
-  const uploadMainImage = async () => {
-    if (!mainImageFile) return {
-      url: editProduct?.image_url || null,
-      path: editProduct?.image_path || null
-    }
-    const ext = mainImageFile.name.split('.').pop()
-    const path = `products/${Date.now()}.${ext}`
-    const { error } = await supabase.storage
-      .from('product-images').upload(path, mainImageFile, { upsert: true })
-    if (error) throw new Error('Upload ảnh thất bại: ' + error.message)
-    const { data: { publicUrl } } = supabase.storage
-      .from('product-images').getPublicUrl(path)
-    return { url: publicUrl, path }
-  }
-
-  const handleSave = async () => {
-    if (!form.name || !form.price || !form.category)
-      return toast.error('Vui lòng điền đủ tên, giá và danh mục')
+  const save = async () => {
+    if (!form.name.trim()) { toast.error('Nhập tên sản phẩm'); return }
+    if (!form.category) { toast.error('Chọn danh mục'); return }
+    if (!form.price || Number(form.price) <= 0) { toast.error('Nhập giá sản phẩm'); return }
     setSaving(true)
     try {
-      const { url: imageUrl, path: imagePath } = await uploadMainImage()
       const payload = {
-        name: form.name, brand: form.brand, sku: form.sku,
-        price: Number(form.price),
-        original_price: form.original_price ? Number(form.original_price) : null,
-        category: form.category, subcategory: form.subcategory,
-        sizes: form.sizes, colors: form.colors,
-        description: form.description,
-        warranty_info: form.warranty_info,
-        return_info: form.return_info,
-        delivery_info: form.delivery_info,
-        is_active: form.is_active,
-        is_flash_sale: form.is_flash_sale,
-        is_new: form.is_new,
-        stock: Number(form.stock) || 0,
-        image_url: imageUrl, image_path: imagePath,
-        updated_at: new Date().toISOString(),
+        ...form,
+        price:         Number(form.price) || 0,
+        compare_price: Number(form.compare_price) || 0,
+        stock_quantity: Number(form.stock_quantity) || 0,
+        flash_sale_start: form.flash_sale_start ? new Date(form.flash_sale_start).toISOString() : null,
+        flash_sale_end:   form.flash_sale_end   ? new Date(form.flash_sale_end).toISOString()   : null,
       }
-
-      if (editProduct) {
-        if (mainImageFile && editProduct.image_path) {
-          await supabase.storage.from('product-images').remove([editProduct.image_path])
-        }
-        const { error } = await supabase.from('products').update(payload).eq('id', editProduct.id)
-        if (error) throw error
-        await writeLog('UPDATE_PRODUCT', editProduct.id, form.name, payload, editProduct)
-        toast.success('Cập nhật thành công!')
+      let data, error
+      if (isEdit) {
+        ({ data, error } = await supabase.from('products').update(payload).eq('id', product.id).select().single())
       } else {
-        payload.created_at = new Date().toISOString()
-        const { data, error } = await supabase.from('products').insert(payload).select().single()
-        if (error) throw error
-        await writeLog('CREATE_PRODUCT', data.id, form.name, payload)
-        toast.success('Thêm sản phẩm thành công!')
+        ({ data, error } = await supabase.from('products').insert(payload).select().single())
       }
-      setShowModal(false)
-      fetchProducts()
-    } catch (err) {
-      toast.error('Lỗi: ' + err.message)
-    } finally {
-      setSaving(false)
-    }
+      if (error) throw error
+      onSaved(data)
+      toast.success(isEdit ? 'Đã cập nhật sản phẩm!' : 'Đã thêm sản phẩm!')
+      onClose()
+    } catch (err) { toast.error('Lỗi: ' + err.message) }
+    finally { setSaving(false) }
   }
 
-  const handleDelete = async (product) => {
-    if (!window.confirm(`Xoá sản phẩm "${product.name}"?`)) return
-    try {
-      if (product.image_path)
-        await supabase.storage.from('product-images').remove([product.image_path])
-      await supabase.from('products').delete().eq('id', product.id)
-      await writeLog('DELETE_PRODUCT', product.id, product.name, null, product)
-      setProducts(prev => prev.filter(p => p.id !== product.id))
-      toast.success('Đã xoá sản phẩm')
-    } catch (err) {
-      toast.error('Lỗi: ' + err.message)
-    }
+  const sizeOptions = getSizes(form.category)
+  const TABS = ['Thông tin','Màu & Ảnh','Mô tả','Bảo hành','Giao nhận']
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
+          <h2 className="font-bold text-xl">{isEdit ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl"><X size={20} /></button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 px-6 pt-4 pb-0 flex-shrink-0">
+          {TABS.map((t, i) => (
+            <button key={t} onClick={() => setTab(i)}
+              className={`px-4 py-2 rounded-t-xl text-sm font-medium border-b-2 transition-all ${tab === i ? 'border-red-800 text-red-800 bg-red-50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+          {/* ── Tab 0: Thông tin ── */}
+          {tab === 0 && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Tên sản phẩm *</label>
+                  <input value={form.name} onChange={e => setF('name', e.target.value)} placeholder="Giày Thể Thao Nike..."
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-800" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Thương hiệu</label>
+                  <input value={form.brand} onChange={e => setF('brand', e.target.value)} placeholder="Nike, Adidas..."
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-800" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">SKU / Mã SP</label>
+                  <input value={form.sku} onChange={e => setF('sku', e.target.value)} placeholder="NK001"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-800" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Giá bán *</label>
+                  <input type="number" value={form.price} onChange={e => setF('price', e.target.value)} placeholder="500000"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-800" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Giá gốc (so sánh)</label>
+                  <input type="number" value={form.compare_price} onChange={e => setF('compare_price', e.target.value)} placeholder="700000"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-800" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Tồn kho</label>
+                  <input type="number" value={form.stock_quantity} onChange={e => setF('stock_quantity', e.target.value)} placeholder="100"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-800" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Danh mục *</label>
+                  <select value={form.category} onChange={e => handleCategoryChange(e.target.value)}
+                    className="w-full border border-red-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-800 bg-white">
+                    {Object.keys(CATEGORIES).map(c => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Loại</label>
+                  <select value={form.subcategory} onChange={e => setF('subcategory', e.target.value)}
+                    className={`w-full border rounded-xl px-4 py-2.5 text-sm outline-none bg-white ${form.subcategory ? 'border-red-300' : 'border-gray-200'}`}>
+                    <option value="">-- Tất cả --</option>
+                    {(CATEGORIES[form.category] || []).map(s => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* ✅ Sizes — ẩn hoàn toàn khi là Phụ Kiện */}
+              {sizeOptions.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <label className="text-sm font-medium text-gray-600">Sizes có sẵn:</label>
+                    {form.sizes.length === 0
+                      ? <span className="text-sm font-semibold text-red-600">Chưa chọn</span>
+                      : <span className="text-sm text-green-700 font-semibold">{form.sizes.sort((a,b)=>Number(a)-Number(b)).join(', ')}</span>
+                    }
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {sizeOptions.map(s => (
+                      <button key={s} type="button" onClick={() => toggleSize(s)}
+                        className={`px-4 py-2 rounded-2xl text-sm font-medium border-2 transition-all ${form.sizes.includes(s) ? 'border-red-700 bg-red-700 text-white' : 'border-gray-200 text-gray-600 hover:border-gray-400'}`}>
+                        {s}
+                      </button>
+                    ))}
+                    <button type="button" onClick={() => toggleSize('freesize')}
+                      className={`px-4 py-2 rounded-2xl text-sm font-medium border-2 transition-all ${form.sizes.includes('freesize') ? 'border-red-700 bg-red-700 text-white' : 'border-gray-200 text-gray-600 hover:border-gray-400'}`}>
+                      Freesize
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ✅ Thông báo khi chọn Phụ Kiện */}
+              {form.category === 'Phụ Kiện' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-600">
+                  ℹ️ Phụ kiện (Nón, Balo, Vớ) không cần chọn size giày
+                </div>
+              )}
+
+              {/* Tuỳ chọn hiển thị */}
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">Tuỳ chọn hiển thị</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { key: 'is_active',      emoji: '👁️', label: 'Hiển thị',      note: 'Khách thấy được' },
+                    { key: 'is_flash_sale',  emoji: '🔥', label: 'Flash Sale',     note: 'Xuất hiện trong Flash Sale' },
+                    { key: 'is_new',         emoji: '✨', label: 'Sản phẩm mới',  note: 'Badge MỚI' },
+                  ].map(({ key, emoji, label, note }) => (
+                    <label key={key} className={`flex items-center gap-2 p-3 border-2 rounded-xl cursor-pointer transition-all select-none ${form[key] ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                      <input type="checkbox" checked={!!form[key]} onChange={e => setF(key, e.target.checked)} className="w-4 h-4 accent-red-700" />
+                      <div>
+                        <p className="text-xs font-bold">{emoji} {label}</p>
+                        <p className="text-[10px] text-gray-400">{note}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Flash sale dates - chỉ hiện khi bật flash sale */}
+              {form.is_flash_sale && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 space-y-3">
+                  <p className="text-sm font-bold text-orange-700">🔥 Thời gian Flash Sale</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-orange-600 mb-1">Bắt đầu</label>
+                      <input type="datetime-local" value={form.flash_sale_start}
+                        onChange={e => setF('flash_sale_start', e.target.value)}
+                        className="w-full border border-orange-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-orange-600 mb-1">Kết thúc</label>
+                      <input type="datetime-local" value={form.flash_sale_end}
+                        onChange={e => setF('flash_sale_end', e.target.value)}
+                        className="w-full border border-orange-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-500" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Tab 1: Màu & Ảnh ── */}
+          {tab === 1 && (
+            <div>
+              <p className="text-sm text-gray-500 mb-4">Thêm màu sắc và upload ảnh cho từng màu. Ảnh đầu tiên làm ảnh đại diện.</p>
+              <ColorManager colors={form.colors || []} onChange={val => setF('colors', val)} />
+            </div>
+          )}
+
+          {/* ── Tab 2: Mô tả ── */}
+          {tab === 2 && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Mô tả sản phẩm</label>
+                <textarea rows={5} value={form.description} onChange={e => setF('description', e.target.value)}
+                  placeholder="Mô tả chi tiết về sản phẩm..."
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-800 resize-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Chất liệu</label>
+                <textarea rows={3} value={form.material} onChange={e => setF('material', e.target.value)}
+                  placeholder="Da thật, vải mesh, đế cao su..."
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-800 resize-none" />
+              </div>
+            </div>
+          )}
+
+          {/* ── Tab 3: Bảo hành ── */}
+          {tab === 3 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Chính sách bảo hành</label>
+              <textarea rows={6} value={form.warranty} onChange={e => setF('warranty', e.target.value)}
+                placeholder="Bảo hành 6 tháng cho lỗi nhà sản xuất..."
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-800 resize-none" />
+            </div>
+          )}
+
+          {/* ── Tab 4: Giao nhận ── */}
+          {tab === 4 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Thông tin giao nhận</label>
+              <textarea rows={6} value={form.delivery_info} onChange={e => setF('delivery_info', e.target.value)}
+                placeholder="Giao hàng toàn quốc 2-5 ngày, miễn ship từ 500k..."
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-800 resize-none" />
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 py-4 border-t flex-shrink-0">
+          <button onClick={onClose} className="flex-1 py-3 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50">Huỷ</button>
+          <button onClick={save} disabled={saving}
+            className="flex-1 py-3 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2"
+            style={{ backgroundColor: saving ? '#9ca3af' : '#B71C1C' }}>
+            {saving ? 'Đang lưu...' : '💾 Lưu sản phẩm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// ProductsPage — Trang chính
+// ─────────────────────────────────────────────────────────────
+const CAT_TABS = ['Tất cả', ...Object.keys(CATEGORIES)]
+
+export default function ProductsPage() {
+  const [products, setProducts]     = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [search, setSearch]         = useState('')
+  const [catFilter, setCatFilter]   = useState('Tất cả')
+  const [formOpen, setFormOpen]     = useState(false)
+  const [editProduct, setEditProduct] = useState(null)
+  const [flashModal, setFlashModal] = useState(null)
+  const [page, setPage]             = useState(1)
+  const [total, setTotal]           = useState(0)
+  const PER_PAGE = 20
+
+  const load = useCallback(async (pg = 1) => {
+    setLoading(true)
+    let q = supabase.from('products').select('*', { count: 'exact' })
+    if (catFilter !== 'Tất cả') q = q.eq('category', catFilter)
+    if (search.trim()) q = q.ilike('name', `%${search.trim()}%`)
+    q = q.order('created_at', { ascending: false }).range((pg-1)*PER_PAGE, pg*PER_PAGE-1)
+    const { data, count } = await q
+    setProducts(data || [])
+    setTotal(count || 0)
+    setLoading(false)
+  }, [catFilter, search])
+
+  useEffect(() => { setPage(1); load(1) }, [catFilter, search])
+  useEffect(() => { load(page) }, [page])
+
+  const openAdd  = () => { setEditProduct(null); setFormOpen(true) }
+  const openEdit = (p) => { setEditProduct(p); setFormOpen(true) }
+
+  const deleteProduct = async (id) => {
+    if (!confirm('Xoá sản phẩm này?')) return
+    await supabase.from('products').delete().eq('id', id)
+    setProducts(p => p.filter(x => x.id !== id))
+    toast.success('Đã xoá')
   }
 
-  const toggleSize = (size) => {
-    setF('sizes', form.sizes.includes(size)
-      ? form.sizes.filter(s => s !== size)
-      : [...form.sizes, size].sort()
-    )
+  const onSaved = (saved) => {
+    setProducts(prev => {
+      const exists = prev.find(p => p.id === saved.id)
+      return exists ? prev.map(p => p.id === saved.id ? saved : p) : [saved, ...prev]
+    })
+    setTotal(p => p + (products.find(x => x.id === saved.id) ? 0 : 1))
   }
 
-  const fmt = p => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p)
+  const onFlashSaved = (updated) => {
+    setProducts(prev => prev.map(p => p.id === updated.id ? updated : p))
+  }
 
-  // Filtered products
-  const filtered = products.filter(p => {
-    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase())
-    const matchStatus = statusFilter === 'all'
-      ? true : statusFilter === 'active'
-        ? p.is_active : statusFilter === 'outofstock'
-          ? p.stock <= 0 : true
-    const min = stockFilter.min !== '' ? Number(stockFilter.min) : null
-    const max = stockFilter.max !== '' ? Number(stockFilter.max) : null
-    const matchStock = (min === null || p.stock >= min) && (max === null || p.stock <= max)
-    return matchSearch && matchStatus && matchStock
-  })
-
-  const TABS = [
-    { key: 'basic', label: '📋 Thông tin' },
-    { key: 'colors', label: '🎨 Màu & Ảnh' },
-    { key: 'desc', label: '📝 Chi tiết SP' },
-    { key: 'warranty', label: '🛡 Bảo hành' },
-    { key: 'delivery', label: '🚚 Giao nhận' },
-  ]
+  const totalPages = Math.ceil(total / PER_PAGE)
 
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Quản lý sản phẩm</h1>
-          <p className="text-sm text-gray-400 mt-1">{products.length} sản phẩm</p>
-        </div>
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <h1 className="text-2xl font-black text-gray-800">Sản phẩm</h1>
         <button onClick={openAdd}
-          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl font-medium transition-colors">
-          <Plus size={18} /> Thêm sản phẩm
+          className="flex items-center gap-2 text-white px-5 py-2.5 rounded-xl font-semibold text-sm"
+          style={{ backgroundColor: '#B71C1C' }}>
+          <Plus size={16} /> Thêm sản phẩm
         </button>
       </div>
 
-      {/* Filter bar */}
-      <div className="bg-white rounded-2xl shadow-sm p-4 mb-5">
-        <div className="flex flex-wrap gap-3 items-end">
-          {/* Search */}
-          <div className="flex-1 min-w-[200px]">
-            <label className="text-xs font-medium text-gray-500 mb-1 block">Tìm kiếm</label>
-            <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2">
-              <Search size={14} className="text-gray-400" />
-              <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Tên sản phẩm..."
-                className="flex-1 text-sm outline-none" />
-            </div>
+      {/* Search + Filter */}
+      <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
+        <div className="flex gap-3 mb-4">
+          <div className="flex-1 relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tên sản phẩm..."
+              className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-red-800" />
           </div>
-
-          {/* Status filter */}
-          <div>
-            <label className="text-xs font-medium text-gray-500 mb-1 block">Trạng thái</label>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white outline-none">
-              <option value="all">Tất cả</option>
-              <option value="active">Đang hiển thị</option>
-              <option value="outofstock">Hết hàng</option>
-            </select>
-          </div>
-
-          {/* Stock range filter */}
-          <div>
-            <label className="text-xs font-medium text-gray-500 mb-1 block">
-              Tồn kho (từ — đến)
-            </label>
-            <div className="flex items-center gap-2">
-              <input type="number" value={stockFilter.min}
-                onChange={e => setStockFilter(p => ({ ...p, min: e.target.value }))}
-                placeholder="0" className="w-20 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none" />
-              <span className="text-gray-400">—</span>
-              <input type="number" value={stockFilter.max}
-                onChange={e => setStockFilter(p => ({ ...p, max: e.target.value }))}
-                placeholder="999" className="w-20 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none" />
-            </div>
-          </div>
-
-          <button onClick={() => { setSearch(''); setStockFilter({ min: '', max: '' }); setStatusFilter('all') }}
-            className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-100">
-            Xoá lọc
-          </button>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {CAT_TABS.map(t => (
+            <button key={t} onClick={() => setCatFilter(t)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${catFilter === t ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              style={catFilter === t ? { backgroundColor: '#B71C1C' } : {}}>
+              {t}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Product table */}
-      {loading ? (
-        <div className="text-center py-20 text-gray-400">Đang tải...</div>
-      ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl p-16 text-center shadow-sm">
-          <div className="text-6xl mb-4">👟</div>
-          <p className="text-gray-400 text-lg mb-6">
-            {products.length === 0 ? 'Chưa có sản phẩm nào' : 'Không tìm thấy sản phẩm phù hợp'}
-          </p>
-          {products.length === 0 && (
-            <button onClick={openAdd}
-              className="bg-red-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-red-700">
-              + Thêm sản phẩm đầu tiên
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
-              <tr>
-                <th className="px-5 py-3 text-left">Sản phẩm</th>
-                <th className="px-5 py-3 text-left">Danh mục</th>
-                <th className="px-5 py-3 text-right">Giá</th>
-                <th className="px-5 py-3 text-center">Tồn kho</th>
-                <th className="px-5 py-3 text-center">Flash</th>
-                <th className="px-5 py-3 text-center">Trạng thái</th>
-                <th className="px-5 py-3 text-center">Thao tác</th>
+      {/* Table */}
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50">
+                <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase">Sản phẩm</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-500 text-xs uppercase">Danh mục</th>
+                <th className="text-right px-4 py-3 font-semibold text-gray-500 text-xs uppercase">Giá</th>
+                <th className="text-center px-4 py-3 font-semibold text-gray-500 text-xs uppercase">Tồn kho</th>
+                <th className="text-center px-4 py-3 font-semibold text-gray-500 text-xs uppercase">Flash</th>
+                <th className="text-center px-4 py-3 font-semibold text-gray-500 text-xs uppercase">Trạng thái</th>
+                <th className="text-center px-4 py-3 font-semibold text-gray-500 text-xs uppercase">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map(p => (
-                <tr key={p.id} className={`hover:bg-gray-50 transition-colors ${p.stock <= 0 ? 'opacity-60' : ''}`}>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={p.image_url || 'https://placehold.co/48x48/f5f5f5/999?text=?'}
-                        alt={p.name}
-                        className="w-12 h-12 object-cover rounded-lg border flex-shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm text-gray-800 truncate max-w-[200px]">{p.name}</p>
-                        <p className="text-xs text-gray-400">{p.brand} {p.sku && `· ${p.sku}`}</p>
-                        {p.colors?.length > 0 && (
+            <tbody>
+              {loading ? (
+                [...Array(5)].map((_, i) => (
+                  <tr key={i} className="border-b border-gray-50">
+                    <td colSpan={7} className="px-4 py-4">
+                      <div className="h-10 bg-gray-100 rounded-xl animate-pulse" />
+                    </td>
+                  </tr>
+                ))
+              ) : products.length === 0 ? (
+                <tr><td colSpan={7} className="text-center py-16 text-gray-400">Không có sản phẩm nào</td></tr>
+              ) : products.map(p => {
+                const thumb = p.colors?.[0]?.images?.[0] || ''
+                return (
+                  <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+                          {thumb ? <img src={thumb} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xl">📦</div>}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-800 text-sm truncate max-w-[200px]">{p.name}</p>
+                          <p className="text-xs text-gray-400">{p.brand} {p.sku ? `· ${p.sku}` : ''}</p>
+                          {/* Color swatches */}
                           <div className="flex gap-1 mt-1">
-                            {p.colors.slice(0, 4).map((c, i) => (
-                              <div key={i}
-                                className="w-3.5 h-3.5 rounded-full border border-gray-200"
-                                style={{ backgroundColor: c.hex }}
-                                title={c.name} />
+                            {(p.colors || []).slice(0,4).map((c, i) => (
+                              <div key={i} className="w-3 h-3 rounded-full border border-gray-200"
+                                style={{ backgroundColor: c.colorCode || '#ccc' }} title={c.name} />
                             ))}
                           </div>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 text-sm text-gray-500">
-                    <div>{p.category}</div>
-                    {p.subcategory && <div className="text-xs text-gray-400">{p.subcategory}</div>}
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    <span className="font-bold text-red-600 text-sm">{fmt(p.price)}</span>
-                    {p.original_price && (
-                      <p className="text-xs text-gray-400 line-through">{fmt(p.original_price)}</p>
-                    )}
-                  </td>
-                  <td className="px-5 py-4 text-center">
-                    <span className={`font-bold text-sm ${
-                      p.stock <= 0 ? 'text-red-500'
-                        : p.stock <= 10 ? 'text-orange-500'
-                          : 'text-green-600'
-                    }`}>
-                      {p.stock}
-                    </span>
-                    {p.stock <= 0 && (
-                      <p className="text-xs text-red-400">Hết hàng</p>
-                    )}
-                    {p.stock > 0 && p.stock <= 10 && (
-                      <p className="text-xs text-orange-400">Sắp hết</p>
-                    )}
-                  </td>
-                  <td className="px-5 py-4 text-center">
-                    {p.is_flash_sale ? '🔥' : <span className="text-gray-200">—</span>}
-                  </td>
-                  <td className="px-5 py-4 text-center">
-                    <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                      p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                    }`}>
-                      {p.is_active ? 'Hiển thị' : 'Ẩn'}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center justify-center gap-2">
-                      <button onClick={() => openEdit(p)}
-                        className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg">
-                        <Pencil size={16} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-gray-700">{p.category}</p>
+                      {p.subcategory && <p className="text-xs text-gray-400">{p.subcategory}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <p className="font-bold" style={{ color: '#B71C1C' }}>{fmt(p.price)} đ</p>
+                      {p.compare_price > p.price && (
+                        <p className="text-xs text-gray-400 line-through">{fmt(p.compare_price)} đ</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`font-semibold ${Number(p.stock_quantity) > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {p.stock_quantity ?? 0}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {/* ✅ Flash sale icon - bấm để mở modal */}
+                      <button
+                        onClick={() => setFlashModal(p)}
+                        title={p.is_flash_sale ? 'Flash Sale đang bật — click để chỉnh' : 'Bật Flash Sale'}
+                        className={`inline-flex items-center justify-center w-8 h-8 rounded-xl transition-all ${p.is_flash_sale ? 'bg-orange-100 text-orange-500 hover:bg-orange-200' : 'text-gray-300 hover:text-orange-400 hover:bg-orange-50'}`}>
+                        🔥
                       </button>
-                      <button onClick={() => handleDelete(p)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${p.is_active ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {p.is_active ? 'Hiển thị' : 'Ẩn'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => openEdit(p)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl transition-all" title="Sửa">
+                          <Pencil size={15} />
+                        </button>
+                        <button onClick={() => deleteProduct(p.id)} className="p-2 text-red-400 hover:bg-red-50 rounded-xl transition-all" title="Xoá">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
-      )}
 
-      {/* ── MODAL ── */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center overflow-y-auto py-6 px-4">
-          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl">
-
-            {/* Modal header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white rounded-t-2xl z-10">
-              <h2 className="text-lg font-bold text-gray-800">
-                {editProduct ? '✏️ Chỉnh sửa sản phẩm' : '➕ Thêm sản phẩm mới'}
-              </h2>
-              <button onClick={() => setShowModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full">
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex gap-1 px-6 pt-4 pb-0 border-b overflow-x-auto">
-              {TABS.map(tab => (
-                <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                  className={`px-4 py-2 text-sm font-medium rounded-t-xl whitespace-nowrap transition-all border-b-2 ${
-                    activeTab === tab.key
-                      ? 'border-red-600 text-red-600 bg-red-50'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}>
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="p-6">
-
-              {/* Tab: Thông tin cơ bản */}
-              {activeTab === 'basic' && (
-                <div className="space-y-5">
-                  {/* Ảnh chính */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      📸 Ảnh đại diện sản phẩm
-                      <span className="text-gray-400 font-normal ml-1">(JPG/PNG, tối đa 5MB)</span>
-                    </label>
-                    <div onClick={() => mainFileRef.current?.click()}
-                      className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center cursor-pointer hover:border-red-400 hover:bg-red-50/30 transition-all">
-                      {mainImagePreview ? (
-                        <div className="relative inline-block">
-                          <img src={mainImagePreview} alt="preview"
-                            className="max-h-40 mx-auto rounded-xl object-contain" />
-                          <p className="text-xs text-gray-400 mt-1">Click để đổi ảnh</p>
-                        </div>
-                      ) : (
-                        <div className="py-6 text-gray-400">
-                          <Upload size={32} className="mx-auto mb-2 text-gray-300" />
-                          <p className="text-sm font-medium">Click để chọn ảnh đại diện</p>
-                        </div>
-                      )}
-                      <input ref={mainFileRef} type="file" accept="image/*"
-                        className="hidden" onChange={handleMainImageChange} />
-                    </div>
-                  </div>
-
-                  {/* Tên & Brand & SKU */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">
-                        Tên sản phẩm <span className="text-red-500">*</span>
-                      </label>
-                      <input value={form.name} onChange={e => setF('name', e.target.value)}
-                        placeholder="Nike Air Max 2025..."
-                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">Thương hiệu</label>
-                      <input value={form.brand} onChange={e => setF('brand', e.target.value)}
-                        placeholder="Nike, Adidas..."
-                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">Mã SKU</label>
-                      <input value={form.sku} onChange={e => setF('sku', e.target.value)}
-                        placeholder="NK-AM-2025-001"
-                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500" />
-                    </div>
-                  </div>
-
-                  {/* Giá */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">
-                        Giá bán (VNĐ) <span className="text-red-500">*</span>
-                      </label>
-                      <input type="number" value={form.price} onChange={e => setF('price', e.target.value)}
-                        placeholder="350000"
-                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500" />
-                      {form.price && (
-                        <p className="text-xs text-gray-400 mt-1">{fmt(form.price)}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">
-                        Giá gốc (để giảm %)
-                      </label>
-                      <input type="number" value={form.original_price}
-                        onChange={e => setF('original_price', e.target.value)}
-                        placeholder="500000"
-                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500" />
-                      {form.price && form.original_price && Number(form.original_price) > Number(form.price) && (
-                        <p className="text-xs text-green-600 mt-1 font-medium">
-                          ✅ Giảm {Math.round((1 - form.price / form.original_price) * 100)}%
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">
-                        Tồn kho
-                      </label>
-                      <input type="number" value={form.stock}
-                        onChange={e => setF('stock', e.target.value)}
-                        min="0" placeholder="100"
-                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500" />
-                      <p className={`text-xs mt-1 font-medium ${
-                        Number(form.stock) <= 0 ? 'text-red-500'
-                          : Number(form.stock) <= 10 ? 'text-orange-500'
-                            : 'text-green-600'
-                      }`}>
-                        {Number(form.stock) <= 0 ? '❌ Hết hàng — web sẽ hiện Sold Out'
-                          : Number(form.stock) <= 10 ? '⚠️ Sắp hết hàng'
-                            : '✅ Còn hàng'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Category + Subcategory */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">
-                        Danh mục <span className="text-red-500">*</span>
-                      </label>
-                      <select value={form.category}
-                        onChange={e => { setF('category', e.target.value); setF('subcategory', '') }}
-                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white outline-none focus:border-red-500">
-                        {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">Loại</label>
-                      <select value={form.subcategory} onChange={e => setF('subcategory', e.target.value)}
-                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white outline-none focus:border-red-500">
-                        <option value="">-- Tất cả --</option>
-                        {(CATEGORY_MAP[form.category] || []).map(s => (
-                          <option key={s}>{s}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Sizes */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Sizes có sẵn:
-                      <span className="ml-2 text-red-600 font-bold">
-                        {form.sizes.length > 0
-                          ? form.sizes.map(s => s === 'freesize' ? 'Freesize' : s).join(', ')
-                          : 'Chưa chọn'
-                        }
-                      </span>
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {ALL_SIZES.map(size => (
-                        <button key={size} type="button" onClick={() => toggleSize(size)}
-                          className={`px-3 py-1.5 rounded-xl border-2 text-sm font-bold transition-all ${
-                            form.sizes.includes(size)
-                              ? 'bg-red-600 text-white border-red-600 scale-105'
-                              : 'border-gray-200 text-gray-600 hover:border-red-300'
-                          } ${size === 'freesize' ? 'text-xs px-2' : ''}`}>
-                          {size === 'freesize' ? 'Freesize' : size}
-                        </button>
-                      ))}
-                    </div>
-                    {form.sizes.includes('freesize') && (
-                      <p className="text-xs text-blue-500 mt-1.5">
-                        ℹ️ Freesize: chỉ Admin thấy — trang khách không hiển thị ô chọn size
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Toggles */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">
-                      Tuỳ chọn hiển thị
-                    </label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {[
-                        { key: 'is_active', label: '👁 Hiển thị', desc: 'Khách thấy được' },
-                        { key: 'is_flash_sale', label: '🔥 Flash Sale', desc: 'Xuất hiện trong Flash Sale' },
-                        { key: 'is_new', label: '✨ Sản phẩm mới', desc: 'Badge MỚI' },
-                      ].map(({ key, label, desc }) => (
-                        <label key={key}
-                          className={`flex flex-col gap-1 p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                            form[key] ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-gray-300'
-                          }`}>
-                          <div className="flex items-center gap-2">
-                            <input type="checkbox" checked={form[key]}
-                              onChange={e => setF(key, e.target.checked)}
-                              className="w-4 h-4 accent-red-600" />
-                            <span className="text-sm font-medium">{label}</span>
-                          </div>
-                          <span className="text-xs text-gray-400 pl-6">{desc}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Tab: Màu & Ảnh */}
-              {activeTab === 'colors' && (
-                <ColorManager
-                  colors={form.colors}
-                  onChange={val => setF('colors', val)}
-                />
-              )}
-
-              {/* Tab: Chi tiết sản phẩm */}
-              {activeTab === 'desc' && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Chi tiết sản phẩm
-                    <span className="text-gray-400 font-normal ml-1">
-                      (hiện trong accordion "Chi tiết Sản Phẩm" ở trang khách)
-                    </span>
-                  </label>
-                  <RichEditor
-                    value={form.description}
-                    onChange={val => setF('description', val)}
-                    placeholder="Chất liệu, kích thước, xuất xứ, mã sản phẩm..."
-                  />
-                </div>
-              )}
-
-              {/* Tab: Bảo hành */}
-              {activeTab === 'warranty' && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Bảo hành & Đổi trả
-                    <span className="text-gray-400 font-normal ml-1">
-                      (hiện trong accordion "Bảo Hành & Đổi" ở trang khách)
-                    </span>
-                  </label>
-                  <RichEditor
-                    value={form.warranty_info}
-                    onChange={val => setF('warranty_info', val)}
-                    placeholder="Chính sách bảo hành, điều kiện đổi trả..."
-                  />
-                </div>
-              )}
-
-              {/* Tab: Giao nhận */}
-              {activeTab === 'delivery' && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Thông tin giao nhận
-                    <span className="text-gray-400 font-normal ml-1">
-                      (hiện trong accordion "Thông Tin Giao Nhận" ở trang khách)
-                    </span>
-                  </label>
-                  <RichEditor
-                    value={form.delivery_info}
-                    onChange={val => setF('delivery_info', val)}
-                    placeholder="Thời gian giao hàng, khu vực, chính sách phí ship..."
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Modal footer */}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-gray-50 rounded-b-2xl sticky bottom-0">
-              <button onClick={() => setShowModal(false)}
-                className="px-6 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-100">
-                Huỷ
-              </button>
-              <button onClick={handleSave} disabled={saving}
-                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white px-8 py-2.5 rounded-xl text-sm font-bold transition-colors">
-                {saving
-                  ? <><Loader2 size={16} className="animate-spin" /> Đang lưu...</>
-                  : '💾 Lưu sản phẩm'
-                }
-              </button>
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+            <p className="text-xs text-gray-400">{total} sản phẩm · Trang {page}/{totalPages}</p>
+            <div className="flex gap-1">
+              <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 disabled:opacity-40 text-sm">‹</button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const pg = page <= 3 ? i+1 : page + i - 2
+                if (pg < 1 || pg > totalPages) return null
+                return (
+                  <button key={pg} onClick={() => setPage(pg)}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm ${pg === page ? 'text-white' : 'hover:bg-gray-100'}`}
+                    style={pg === page ? { backgroundColor: '#B71C1C' } : {}}>
+                    {pg}
+                  </button>
+                )
+              })}
+              <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 disabled:opacity-40 text-sm">›</button>
             </div>
           </div>
-        </div>
+        )}
+      </div>
+
+      {/* Modals */}
+      {formOpen && (
+        <ProductForm
+          product={editProduct}
+          onClose={() => setFormOpen(false)}
+          onSaved={onSaved}
+        />
+      )}
+      {flashModal && (
+        <FlashSaleModal
+          product={flashModal}
+          onClose={() => setFlashModal(null)}
+          onSaved={onFlashSaved}
+        />
       )}
     </div>
   )
