@@ -212,7 +212,7 @@ export default function ProductListingPage() {
       )}
       {show.show_color && availableColors.length > 0 && <FilterDivider />}
 
-      {show.show_size && availableSizes.length > 0 && (
+      {category !== 'Phụ Kiện' && show.show_size && availableSizes.length > 0 && (
         <div className="py-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-sm uppercase tracking-wider text-gray-800">Size</h3>
@@ -229,7 +229,7 @@ export default function ProductListingPage() {
           </div>
         </div>
       )}
-      {show.show_size && availableSizes.length > 0 && <FilterDivider />}
+      {category !== 'Phụ Kiện' && show.show_size && availableSizes.length > 0 && <FilterDivider />}
 
       {show.show_price && (
         <div className="py-5">
