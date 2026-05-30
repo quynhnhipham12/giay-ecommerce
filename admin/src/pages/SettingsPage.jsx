@@ -200,28 +200,70 @@ export default function SettingsPage() {
 
       {/* ── Tab: Ngân hàng ── */}
       {tab === 'bank' && (
-        <div className="bg-white rounded-2xl p-6 shadow-sm space-y-4">
-          <h2 className="font-bold text-lg text-gray-800">Thông tin chuyển khoản</h2>
-          {[
-            { key: 'bank_name',    label: 'Tên ngân hàng',   placeholder: 'Vietin Bank...' },
-            { key: 'bank_account', label: 'Số tài khoản',    placeholder: '1234567890' },
-            { key: 'bank_holder',  label: 'Chủ tài khoản',   placeholder: 'NGUYEN VAN A' },
-            { key: 'bank_content', label: 'Nội dung CK mẫu', placeholder: 'Tên + SĐT' },
-          ].map(({ key, label, placeholder }) => (
-            <div key={key}>
-              <label className="block text-sm font-medium text-gray-600 mb-1">{label}</label>
-              <input value={settings[key] || ''} onChange={e => setS(key, e.target.value)}
-                placeholder={placeholder}
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-800" />
-            </div>
-          ))}
-          <button onClick={saveAll} disabled={saving}
-            className="flex items-center gap-2 text-white px-8 py-3 rounded-xl font-bold w-full justify-center"
-            style={{ backgroundColor: saving ? '#9ca3af' : '#B71C1C' }}>
-            {saving ? 'Đang lưu...' : <><Save size={18} /> Lưu</>}
-          </button>
+  <div className="bg-white rounded-2xl p-6 shadow-sm space-y-4">
+    <h2 className="font-bold text-lg text-gray-800">🏦 Thông tin chuyển khoản</h2>
+    {[
+      { key:'bank_name',    label:'Tên ngân hàng',   placeholder:'Vietin Bank...' },
+      { key:'bank_account', label:'Số tài khoản',    placeholder:'1234567890' },
+      { key:'bank_holder',  label:'Chủ tài khoản',   placeholder:'NGUYEN VAN A' },
+      { key:'bank_content', label:'Nội dung CK mẫu', placeholder:'Tên + SĐT' },
+    ].map(({ key, label, placeholder }) => (
+      <div key={key}>
+        <label className="block text-sm font-medium text-gray-600 mb-1">{label}</label>
+        <input value={settings[key]||''} onChange={e=>setS(key,e.target.value)}
+          placeholder={placeholder}
+          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-800"/>
+      </div>
+    ))}
+
+    {/* ✅ QR chuyển khoản */}
+    <div>
+      <label className="block text-sm font-medium text-gray-600 mb-1">Ảnh QR chuyển khoản</label>
+      <p className="text-xs text-gray-400 mb-3">Hiển thị trên trang thanh toán khi khách chọn chuyển khoản</p>
+      <div className="flex items-start gap-4">
+        {settings.bank_qr_url ? (
+          <div className="relative flex-shrink-0">
+            <img src={settings.bank_qr_url} alt="QR" className="w-32 h-32 object-contain border border-gray-200 rounded-xl bg-white p-2"/>
+            <button onClick={()=>setS('bank_qr_url','')}
+              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center hover:bg-red-600">
+              ✕
+            </button>
+          </div>
+        ) : (
+          <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center text-gray-400 text-xs text-center p-3 flex-shrink-0">
+            Chưa có QR
+          </div>
+        )}
+        <div>
+          <input type="file" accept="image/*" id="qr-upload" className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files[0]
+              if (!file) return
+              const ext = file.name.split('.').pop()
+              const path = `qr/bank_qr_${Date.now()}.${ext}`
+              const { error } = await supabase.storage.from('banners').upload(path, file, { upsert: true })
+              if (!error) {
+                const { data: { publicUrl } } = supabase.storage.from('banners').getPublicUrl(path)
+                setS('bank_qr_url', publicUrl)
+                toast.success('Đã upload QR!')
+              }
+            }}/>
+          <label htmlFor="qr-upload"
+            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl text-sm cursor-pointer hover:bg-gray-50 transition-colors">
+            <Upload size={16}/> Upload ảnh QR
+          </label>
+          <p className="text-xs text-gray-400 mt-1.5">PNG, JPG, WebP · Nên dùng ảnh vuông</p>
         </div>
-      )}
+      </div>
+    </div>
+
+    <button onClick={saveAll} disabled={saving}
+      className="flex items-center gap-2 text-white px-8 py-3 rounded-xl font-bold w-full justify-center"
+      style={{backgroundColor: saving ? '#9ca3af' : '#B71C1C'}}>
+      {saving ? 'Đang lưu...' : <><Save size={18}/> Lưu</>}
+    </button>
+  </div>
+)}
 
       {/* ── Tab: Hoá đơn & Email ── */}
       {tab === 'invoice' && (

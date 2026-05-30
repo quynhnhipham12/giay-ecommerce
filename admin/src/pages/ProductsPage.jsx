@@ -536,9 +536,6 @@ function ProductForm({ product, onClose, onSaved }) {
           {/* ── Tab 1: Màu & Ảnh ── */}
           {tab === 1 && (
             <div>
-              <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4 text-xs text-green-700">
-                ✅ <strong>Ảnh được upload lên Supabase Cloud</strong> — máy tính khác chỉnh sửa vẫn thấy ảnh bình thường, không lo mất ảnh.
-              </div>
               <ColorManager
                 colors={form.colors || []}
                 onChange={val => setF('colors', val)}
